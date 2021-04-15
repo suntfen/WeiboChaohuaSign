@@ -1,10 +1,10 @@
 name: Run Daily Task
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  workflow_dispatch:
+  schedule:
+    - cron: '2 22 * * *' 
+    # check-in at 06:02
 
 env:
   GSID: ${{ secrets.GSID }}
