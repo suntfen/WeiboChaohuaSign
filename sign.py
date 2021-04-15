@@ -1,13 +1,13 @@
+import os
 import re
 import sys
 import time
 import requests
-from config import Config
 from multiprocessing.dummy import Pool
 
-cf = Config('config.ini', '配置')
 pool = Pool(100)
 
+gsid = os.environ['GSID']
 
 def get_sign_list():
     cookies = {'SUB': gsid}
@@ -125,14 +125,6 @@ def sign(args):
         already_sign += 1
 
 
-def get_gsid():
-    gsid = cf.GetStr('配置', 'gsid')
-    if gsid == '':
-        print('请前往"https://m.weibo.cn"获取gsid')
-        gsid = input('请输入你的gsid：')
-    return gsid
-
-
 def start_sign():
     global success_sign
     global fail_sign
@@ -168,5 +160,4 @@ def start_sign():
 
 
 if __name__ == '__main__':
-    gsid = get_gsid()
     start_sign()
