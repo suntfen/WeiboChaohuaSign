@@ -7,8 +7,6 @@ from multiprocessing.dummy import Pool
 
 pool = Pool(100)
 
-gsid = os.environ['GSID']
-
 def get_sign_list():
     cookies = {'SUB': gsid}
     info_list = []
@@ -160,4 +158,12 @@ def start_sign():
 
 
 if __name__ == '__main__':
-    start_sign()
+    GSID = os.environ['GSID']
+    gsid_list = GSID.split(';')
+    for i, id in enumerate(gsid_list):
+        print('#' * 60)
+        print('用户 {}'.format(i))
+        gsid = id
+        start_sign()
+        print('#' * 60)
+        print()
