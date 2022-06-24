@@ -8,14 +8,15 @@ from multiprocessing.dummy import Pool
 pool = Pool(100)
 
 def get_sign_list():
-    cookies = {'SUB': gsid}
+    cookies = {'SUB': gsid,
+    'user-agent': 'Mozilla/5.0 (Linux; Android 5.0; SM-G900P Build/LRX21T) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Mobile Safari/537.36'}
     info_list = []
     since_id = ''
     s = 0
     while True:
         url = 'https://m.weibo.cn/api/container/getIndex?containerid=100803_-_followsuper&since_id=' + since_id
         # 获取超话列表
-        r = requests.get(url, cookies=cookies)
+        r = requests.get(url, cookies=cookies, )
         if r.json()['ok'] != 1:
             try:
                 errno = r.json()['errno']
@@ -75,7 +76,7 @@ def get_sign_list():
         # 获取下一页id
         since_id = r.json()['data']['cardlistInfo']['since_id']
         # 获取到空就是爬取完了
-        if since_id == '':
+        if since_id == '' or since_id == '0':
             break
     # 按等级从大到小排序超话
     info_list.sort(key=lambda keys: keys['lv'], reverse=True)
