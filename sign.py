@@ -5,6 +5,7 @@ import time
 import requests
 import email_sender
 from multiprocessing.dummy import Pool
+from setting import *
 
 pool = Pool(100)
 
