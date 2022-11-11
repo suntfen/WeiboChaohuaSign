@@ -161,28 +161,6 @@ def start_sign():
 
 
 if __name__ == '__main__':
-    CONTENT_TEMPLATE = '''
-<meta http-equiv="Content-Type" content="text/html; charset=utf8" /><meta name="viewport" content="width=device-width, initial-scale=1">
-<style type="text/css">@media screen and (min-device-width: 1100px) {
-#divMain{
-    float:left;
-    width:65%!important;
-}
-#divSidebar {
-    display:inline!important;
-    float:left;
-    width:15%;
-    height:300px;
-}
-}
-</style>
-<div style="width:100%">
-<div id="divSidebar" style="display:none"></div>
-
-<div id="divMain" style="width:auto;margin:0.5em;">
-    <h2 style="font-family:microsoft yahei;">%UserName%</h2>
-</div>
-'''
     env = os.environ
     if 'TO_LIST' in env.keys() and env['TO_LIST']:
         to_list = env['TO_LIST'].split(';')
@@ -227,8 +205,8 @@ if __name__ == '__main__':
         print('#' * 60)
         print()
 
-    html = CONTENT_TEMPLATE.replace('%UserName%', ', '.join(failed_list))
-    email = email_sender.Email(mail_usr, mail_auth, smtp_server, smtp_port)
-    email.connect()
-    email.send(to_list, 'WeiBo Chaohua Sign Failed !'.format(i), html)
-    email.quit()
+    if len(failed_list) > 0:
+        email = email_sender.Email(mail_usr, mail_auth, smtp_server, smtp_port)
+        email.connect()
+        email.send(to_list, 'WeiBo Chaohua Sign Failed !'.format(i), ', '.join(failed_list))
+        email.quit()
