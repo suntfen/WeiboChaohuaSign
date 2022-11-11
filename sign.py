@@ -3,6 +3,7 @@ import re
 import sys
 import time
 import requests
+import email_sender
 from multiprocessing.dummy import Pool
 
 pool = Pool(100)
@@ -68,8 +69,8 @@ def get_sign_list():
                     info['cookies'] = c
                     print(title_sub)
                     print(lv)
-                    if desc != '':
-                        print(desc)
+                    # if desc != '':
+                    #     print(desc)
                     print(sign_info)
                     info_list.append(info)
                     s += 1
@@ -159,12 +160,74 @@ def start_sign():
 
 
 if __name__ == '__main__':
-    GSID = os.environ['GSID']
-    gsid_list = GSID.split(';')
+    CONTENT_TEMPLATE = '''
+<meta http-equiv="Content-Type" content="text/html; charset=utf8" /><meta name="viewport" content="width=device-width, initial-scale=1">
+<style type="text/css">@media screen and (min-device-width: 1100px) {
+#divMain{
+    float:left;
+    width:65%!important;
+}
+#divSidebar {
+    display:inline!important;
+    float:left;
+    width:15%;
+    height:300px;
+}
+}
+</style>
+<div style="width:100%">
+<div id="divSidebar" style="display:none"></div>
+
+<div id="divMain" style="width:auto;margin:0.5em;">
+    <h2 style="font-family:microsoft yahei;">%UserName%</h2>
+</div>
+'''
+    env = os.environ
+    if 'TO_LIST' in env.keys() and env['TO_LIST']:
+        to_list = env['TO_LIST'].split(';')
+    else:
+        to_list = TO_LIST
+
+    if 'MAIL_USR' in env.keys() and env['MAIL_USR']:
+        mail_usr = env['MAIL_USR']
+    else:
+        mail_usr = MAIL_USR
+
+    if 'MAIL_AUTH' in env.keys() and env['MAIL_AUTH']:
+        mail_auth = env['MAIL_AUTH']
+    else:
+        mail_auth = MAIL_AUTH
+
+    if 'SMTP_SERVER' in env.keys() and env['SMTP_SERVER']:
+        smtp_server = env['SMTP_SERVER']
+    else:
+        smtp_server = SMTP_SERVER
+
+    if 'SMTP_PORT' in env.keys() and env['SMTP_PORT']:
+        smtp_port = env['SMTP_PORT']
+    else:
+        smtp_port = int(SMTP_PORT)
+
+    if 'GSID' in env.keys() and env['GSID']:
+        gsid_list = env['GSID'].split(';')
+    else:
+        gsid_list = GSID.split(';')
+
+    failed_list = []
     for i, id in enumerate(gsid_list):
         print('#' * 60)
         print('用户 {}'.format(i))
-        gsid = id
-        start_sign()
+        try:
+            gsid = id
+            start_sign()
+        except:
+            print('用户 {} 签到失败'.format(i))
+            failed_list.append('用户 {}'.format(i))
         print('#' * 60)
         print()
+
+    html = CONTENT_TEMPLATE.replace('%UserName%', ', '.join(failed_list))
+    email = email_sender.Email(mail_usr, mail_auth, smtp_server, smtp_port)
+    email.connect()
+    email.send(to_list, 'WeiBo Chaohua Sign Failed !'.format(i), html)
+    email.quit()
