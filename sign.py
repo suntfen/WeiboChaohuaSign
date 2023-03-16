@@ -199,6 +199,8 @@ if __name__ == '__main__':
         try:
             gsid = id
             start_sign()
+            if fail_sign > 0:
+                raise Exception
         except:
             print('用户 {} 签到失败'.format(i))
             failed_list.append('用户 {}'.format(i))
