@@ -158,6 +158,7 @@ def start_sign():
         print('今天你已经全部签到')
     else:
         print(f'签到完毕，共签到成功{success_sign}个，签到失败{fail_sign}个')
+        raise Exception
 
 
 if __name__ == '__main__':
@@ -199,8 +200,6 @@ if __name__ == '__main__':
         try:
             gsid = id
             start_sign()
-            if fail_sign > 0:
-                raise Exception
         except:
             print('用户 {} 签到失败'.format(i))
             failed_list.append('用户 {}'.format(i))
