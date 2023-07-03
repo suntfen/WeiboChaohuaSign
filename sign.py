@@ -209,5 +209,5 @@ if __name__ == '__main__':
     if len(failed_list) > 0:
         email = email_sender.Email(mail_usr, mail_auth, smtp_server, smtp_port)
         email.connect()
-        email.send(to_list, 'WeiBo Chaohua Sign Failed !'.format(i), ', '.join(failed_list))
+        email.send(to_list, 'WeiBo Chaohua Sign Failed !', ', '.join(failed_list))
         email.quit()
