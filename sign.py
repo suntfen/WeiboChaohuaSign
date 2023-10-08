@@ -100,13 +100,15 @@ def sign(args):
         cookies = info['cookies']
         lv = info['lv']
         n = 1
+        is_success = False 
         while True:
             try:
                 r = requests.post(sign_url, cookies=cookies, headers={
                     'Referer': 'https://m.weibo.cn',
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36'},
                                   timeout=3)
-                if r.status_code == 200:
+                if r.status_code == 200 and r.json()['ok'] == 1:
+                    is_success = True
                     break
                 else:
                     raise Exception
@@ -116,7 +118,7 @@ def sign(args):
                     return False
                 n *= 2
                 time.sleep(1)
-        if r.json()['ok'] == 1:
+        if is_success:
             print(f'第{i}个签到成功："{title_sub}" 等级LV.{lv}')
             success_sign += 1
         else:
