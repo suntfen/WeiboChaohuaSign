@@ -10,15 +10,21 @@ from setting import *
 pool = Pool(100)
 
 def get_sign_list():
-    cookies = {'SUB': gsid,
-    'user-agent': 'Mozilla/5.0 (Linux; Android 5.0; SM-G900P Build/LRX21T) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Mobile Safari/537.36'}
+    headers={
+        'Referer': 'https://m.weibo.cn',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36'
+    }
+    cookies = {
+        'SUB': gsid
+    }
     info_list = []
     since_id = ''
     s = 0
     while True:
+        # https://m.weibo.cn/p/232478_-_bottom_mine_followed
         url = 'https://m.weibo.cn/api/container/getIndex?containerid=100803_-_followsuper&since_id=' + since_id
         # 获取超话列表
-        r = requests.get(url, cookies=cookies, )
+        r = requests.get(url, cookies=cookies, headers=headers)
         if r.json()['ok'] != 1:
             try:
                 errno = r.json()['errno']
@@ -211,5 +217,5 @@ if __name__ == '__main__':
     if len(failed_list) > 0:
         email = email_sender.Email(mail_usr, mail_auth, smtp_server, smtp_port)
         email.connect()
-        email.send(to_list, 'WeiBo Chaohua Sign Failed !', ', '.join(failed_list))
+        email.send(to_list, 'WeiBo Chaohua Sign Failed !'.format(i), ', '.join(failed_list))
         email.quit()
