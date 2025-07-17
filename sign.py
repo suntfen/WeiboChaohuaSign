@@ -7,215 +7,205 @@ import email_sender
 from multiprocessing.dummy import Pool
 from setting import *
 
-pool = Pool(100)
+class WeiboSigner:
+    MAX_RETRIES = 4  # 最大重试次数
 
-def get_sign_list():
-    headers={
-        'Referer': 'https://m.weibo.cn',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36'
-    }
-    cookies = {
-        'SUB': gsid
-    }
-    info_list = []
-    since_id = ''
-    s = 0
-    while True:
-        # https://m.weibo.cn/p/232478_-_bottom_mine_followed
-        url = 'https://m.weibo.cn/api/container/getIndex?containerid=100803_-_followsuper&since_id=' + since_id
-        # 获取超话列表
-        r = requests.get(url, cookies=cookies, headers=headers)
-        if r.json()['ok'] != 1:
-            try:
-                errno = r.json()['errno']
-            except:
-                continue
-            if errno == '100005':
-                print(r.json()['msg'])
-                n = 600
-                while n + 1:
-                    time.sleep(1)
-                    sys.stdout.write(f'\r等待时间：{n}秒')
-                    n -= 1
-                continue
-        c = cookies
-        c.update(r.cookies.get_dict())
-        cards = r.json()['data']['cards']
-        for i in range(len(cards)):
-            card_type = cards[i]['card_type']
-            if card_type != '11':
-                continue
-            card_group = cards[i]['card_group']
-            for j in range(len(card_group)):
-                if card_group[j]['card_type'] == '8':
-                    info = {}
-                    print('*' * 50)
-                    # 超话名
-                    title_sub = card_group[j]['title_sub']
-                    # 超话等级
-                    lv = card_group[j]['desc1']
-                    # 超话信息
-                    desc = card_group[j]['desc2'].strip()
-                    # 去掉多余换行符
-                    desc = '\n'.join([i for i in desc.split('\n') if i != ''])
-                    # 超话签到信息
-                    sign_info = card_group[j]['buttons'][0]['name']
-                    # 超话id
-                    containerid = card_group[j]['scheme'].split('&')[0].split('=')[1]
-                    if sign_info == '签到':
-                        sign_info = '未签到'
-                    sign_url = card_group[j]['buttons'][0]['scheme']
-                    if sign_url:
-                        sign_url = 'https://m.weibo.cn' + card_group[j]['buttons'][0]['scheme']
-                    info['title_sub'] = title_sub
-                    info['lv'] = int(re.findall('\d+', lv)[0])
-                    info['desc'] = desc
-                    info['sign_info'] = sign_info
-                    info['containerid'] = containerid
-                    info['sign_url'] = sign_url
-                    info['cookies'] = c
-                    print(title_sub)
-                    print(lv)
-                    # if desc != '':
-                    #     print(desc)
-                    print(sign_info)
-                    info_list.append(info)
-                    s += 1
-        # 获取下一页id
-        since_id = r.json()['data']['cardlistInfo']['since_id']
-        # 获取到空就是爬取完了
-        if since_id == '' or since_id == '0':
-            break
-    # 按等级从大到小排序超话
-    info_list.sort(key=lambda keys: keys['lv'], reverse=True)
-    print('*' * 50)
-    print('爬取完毕共%d个超话' % s)
-    print('*' * 50)
-    return info_list
+    def __init__(self, gsid):
+        self._success_sign = 0
+        self._fail_sign = 0
+        self._already_sign = 0
+        self._fail = False
 
+        self._pool = Pool(100)
 
-def sign(args):
-    global success_sign
-    global fail_sign
-    global already_sign
-    global fail
-    i, info = args
-    if info['sign_info'] == '未签到':
-        title_sub = info['title_sub']
-        sign_url = info['sign_url']
-        cookies = info['cookies']
-        lv = info['lv']
-        n = 1
-        is_success = False 
+        self._headers = {
+            'Referer': 'https://m.weibo.cn',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36'
+        }
+        self._cookies = {
+            'SUB': gsid
+        }
+
+    def keep_cookies_alive(self):
+        url = 'https://m.weibo.cn/api/config/list'
+        r = requests.get(url, cookies=self._cookies, headers=self._headers)
+        if r.json()['ok'] == 1:
+            channels = r.json()['data']['channel']
+            for ch in channels:
+                if ch['name'] == '热门':
+                    hot_gid = ch['gid']
+            hot_url = 'https://m.weibo.cn/api/container/getIndex?containerid=' + hot_gid
+            h_r = requests.get(hot_url, cookies=self._cookies, headers=self._headers)
+            print(h_r.json())
+        frd_url = 'https://m.weibo.cn/feed/friends'
+        r = requests.get(frd_url, cookies=self._cookies, headers=self._headers)
+        print(r.json())
+
+    def get_sign_list(self):
+        info_list = []
+        since_id = ''
         while True:
-            try:
-                r = requests.post(sign_url, cookies=cookies, headers={
-                    'Referer': 'https://m.weibo.cn',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36'},
-                                  timeout=3)
-                if r.status_code == 200 and r.json()['ok'] == 1:
-                    is_success = True
-                    break
-                else:
-                    raise Exception
-            except:
-                if n >= 16:
-                    fail = True
-                    return False
-                n *= 2
-                time.sleep(1)
-        if is_success:
-            print(f'第{i}个签到成功："{title_sub}" 等级LV.{lv}')
-            success_sign += 1
+            # https://m.weibo.cn/p/232478_-_bottom_mine_followed
+            url = f'https://m.weibo.cn/api/container/getIndex?containerid=100803_-_followsuper&since_id={since_id}'
+            r = requests.get(url, cookies=self._cookies, headers=self._headers)
+            if r.json()['ok'] != 1:
+                try:
+                    errno = r.json()['errno']
+                except:
+                    continue
+                if errno == '100005':
+                    print(r.json()['msg'])
+                    self.wait(600)
+                    continue
+            self._cookies.update(r.cookies.get_dict())
+            cards = r.json()['data']['cards']
+            for card in cards:
+                if card['card_type'] != '11':
+                    continue
+                card_group = card['card_group']
+                for group in card_group:
+                    if group['card_type'] == '8':
+                        info = self.extract_info(group)
+                        info_list.append(info)
+            since_id = r.json()['data']['cardlistInfo']['since_id']
+            if not since_id:
+                break
+        info_list.sort(key=lambda keys: keys['lv'], reverse=True)
+        print('*' * 50)
+        print(f'爬取完毕共{len(info_list)}个超话')
+        print('*' * 50)
+        return info_list
+
+    def extract_info(self, group):
+        info = {}
+        print('*' * 50)
+        # 超话名
+        title_sub = group['title_sub']
+        # 超话等级
+        lv = group['desc1']
+        # 超话信息
+        desc = group['desc2'].strip()
+        # 去掉多余换行符
+        desc = '\n'.join([i for i in desc.split('\n') if i])
+        # 超话签到信息
+        sign_info = group['buttons'][0]['name']
+        # 超话id
+        containerid = group['scheme'].split('&')[0].split('=')[1]
+        if sign_info == '签到':
+            sign_info = '未签到'
+        sign_url = group['buttons'][0]['scheme']
+        if sign_url:
+            sign_url = 'https://m.weibo.cn' + group['buttons'][0]['scheme']
+        info['title_sub'] = title_sub
+        info['lv'] = int(re.findall(r'\d+', lv)[0])
+        info['desc'] = desc
+        info['sign_info'] = sign_info
+        info['containerid'] = containerid
+        info['sign_url'] = sign_url
+        print(title_sub)
+        print(lv)
+        # if desc != '':
+        #     print(desc)
+        print(sign_info)
+        return info
+
+    def sign(self, args):
+        i, info = args
+        if info['sign_info'] == '未签到':
+            title_sub = info['title_sub']
+            sign_url = info['sign_url']
+            lv = info['lv']
+            retries = 0  # 初始化重试次数
+            is_success = False
+            while retries < self.MAX_RETRIES:
+                try:
+                    r = requests.post(sign_url, cookies=self._cookies, headers=self._headers, timeout=3)
+                    if r.status_code == 200 and r.json()['ok'] == 1:
+                        is_success = True
+                        break
+                    else:
+                        raise Exception
+                except:
+                    retries += 1  # 增加重试次数
+                    if retries >= self.MAX_RETRIES:
+                        self._fail = True
+                        break
+                    wait_time = 2 ** retries  # 指数退避算法
+                    time.sleep(wait_time)  # 等待一段时间后重试
+            if is_success:
+                print(f'第{i}个签到成功："{title_sub}" 等级LV.{lv}')
+                self._success_sign += 1
+            else:
+                print(f'第{i}个签到失败："{title_sub}" 等级LV.{lv}')
+                self._fail_sign += 1
         else:
-            print(f'第{i}个签到失败："{title_sub}" 等级LV.{lv}')
-            fail_sign += 1
-    else:
-        already_sign += 1
+            self._already_sign += 1
 
+    def start_sign(self):
+        self._fail = False
+        info_list = self.get_sign_list()
+        while True:
+            self._success_sign = 0
+            self._fail_sign = 0
+            self._already_sign = 0
+            lv_gte_12 = [i for i in info_list if i['lv'] >= 12]
+            lv_gte_9 = [i for i in info_list if 9 <= i['lv'] < 12]
+            lv_gte_5 = [i for i in info_list if 5 <= i['lv'] < 9]
+            lv_lt_5 = [i for i in info_list if i['lv'] < 5]
+            self._parallel_sign(lv_gte_12)
+            self._parallel_sign(lv_gte_9)
+            self._parallel_sign(lv_gte_5)
+            self._parallel_sign(lv_lt_5)
+            if self._fail:
+                self.wait(600)
+                self._fail = False
+                continue
+            break
+        if self._success_sign + self._already_sign == len(info_list):
+            print('今天你已经全部签到')
+        else:
+            print(f'签到完毕，共签到成功{self._success_sign}个，签到失败{self._fail_sign}个')
+            raise Exception
 
-def start_sign():
-    global success_sign
-    global fail_sign
-    global already_sign
-    global fail
-    fail = False
-    info_list = get_sign_list()
-    while True:
-        success_sign = 0
-        fail_sign = 0
-        already_sign = 0
-        lv_gte_12 = [i for i in info_list if i['lv'] >= 12]
-        lv_gte_9 = [i for i in info_list if 9 <= i['lv'] < 12]
-        lv_gte_5 = [i for i in info_list if 5 <= i['lv'] < 9]
-        lv_lt_5 = [i for i in info_list if i['lv'] < 5]
-        pool.map(sign, list(enumerate(lv_gte_12)))
-        pool.map(sign, list(enumerate(lv_gte_9)))
-        pool.map(sign, list(enumerate(lv_gte_5)))
-        pool.map(sign, list(enumerate(lv_lt_5)))
-        if fail:
-            n = 600
-            while n + 1:
-                time.sleep(1)
-                sys.stdout.write(f'\r等待时间：{n}秒')
-                n -= 1
-            fail = False
-            continue
-        break
-    if success_sign + already_sign == len(info_list):
-        print('今天你已经全部签到')
-    else:
-        print(f'签到完毕，共签到成功{success_sign}个，签到失败{fail_sign}个')
-        raise Exception
+    def _parallel_sign(self, info_list):
+        self._pool.map(self.sign, list(enumerate(info_list)))
 
+    def wait(self, seconds):
+        for n in range(seconds, 0, -1):
+            time.sleep(1)
+            sys.stdout.write(f'\r等待时间：{n}秒')
+            sys.stdout.flush()
 
-if __name__ == '__main__':
+def main():
     env = os.environ
-    if 'TO_LIST' in env.keys() and env['TO_LIST']:
-        to_list = env['TO_LIST'].split(';')
-    else:
-        to_list = TO_LIST
-
-    if 'MAIL_USR' in env.keys() and env['MAIL_USR']:
-        mail_usr = env['MAIL_USR']
-    else:
-        mail_usr = MAIL_USR
-
-    if 'MAIL_AUTH' in env.keys() and env['MAIL_AUTH']:
-        mail_auth = env['MAIL_AUTH']
-    else:
-        mail_auth = MAIL_AUTH
-
-    if 'SMTP_SERVER' in env.keys() and env['SMTP_SERVER']:
-        smtp_server = env['SMTP_SERVER']
-    else:
-        smtp_server = SMTP_SERVER
-
-    if 'SMTP_PORT' in env.keys() and env['SMTP_PORT']:
-        smtp_port = env['SMTP_PORT']
-    else:
-        smtp_port = int(SMTP_PORT)
-
-    if 'GSID' in env.keys() and env['GSID']:
-        gsid_list = env['GSID'].split(';')
-    else:
-        gsid_list = GSID.split(';')
+    gsid_list = env.get('GSID', GSID).split(';')
 
     failed_list = []
-    for i, id in enumerate(gsid_list):
+    for i, gsid in enumerate(gsid_list):
         print('#' * 60)
-        print('用户 {}'.format(i))
+        print(f'用户 {i}')
         try:
-            gsid = id
-            start_sign()
-        except:
-            print('用户 {} 签到失败'.format(i))
-            failed_list.append('用户 {}'.format(i))
+            signer = WeiboSigner(gsid=gsid)
+            signer.start_sign()
+            signer.keep_cookies_alive()
+        except Exception as e:
+            print(f'用户 {i} 签到失败: {e}')
+            failed_list.append(f'用户 {i}')
         print('#' * 60)
         print()
 
-    if len(failed_list) > 0:
-        email = email_sender.Email(mail_usr, mail_auth, smtp_server, smtp_port)
+    if failed_list:
+        to_list = env.get('TO_LIST', TO_LIST)
+        if not isinstance(to_list, list):
+            to_list = to_list.split(';')
+        mail_usr = env.get('MAIL_USR', MAIL_USR)
+        mail_auth = env.get('MAIL_AUTH', MAIL_AUTH)
+        smtp_server = env.get('SMTP_SERVER', SMTP_SERVER)
+        smtp_port = int(env.get('SMTP_PORT', SMTP_PORT))
+        email = email_sender.Email(usr=mail_usr, pwd=mail_auth, smtp_server=smtp_server, smtp_port=smtp_port)
         email.connect()
-        email.send(to_list, 'WeiBo Chaohua Sign Failed !'.format(i), ', '.join(failed_list))
+        email.send(to_list, 'WeiBo Chaohua Sign Failed !', ', '.join(failed_list))
         email.quit()
+
+if __name__ == '__main__':
+    main()
