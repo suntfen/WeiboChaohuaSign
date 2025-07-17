@@ -36,10 +36,12 @@ class WeiboSigner:
                     hot_gid = ch['gid']
             hot_url = 'https://m.weibo.cn/api/container/getIndex?containerid=' + hot_gid
             h_r = requests.get(hot_url, cookies=self._cookies, headers=self._headers)
-            print(h_r.json())
+            # print(h_r.status_code)
+            # print(h_r.text)
         frd_url = 'https://m.weibo.cn/feed/friends'
         r = requests.get(frd_url, cookies=self._cookies, headers=self._headers)
-        print(r.json())
+        # print(r.status_code)
+        # print(r.text)
 
     def get_sign_list(self):
         info_list = []
