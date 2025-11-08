@@ -23,10 +23,11 @@ class WeiboSigner:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36'
         }
         self._cookies = {
-            'SUB': gsid
+            'SUB': gsid,
+            'SUBP': ''
         }
 
-    def keep_cookies_alive(self):
+    def update_cookies(self):
         url = 'https://m.weibo.cn/api/config/list'
         r = requests.get(url, cookies=self._cookies, headers=self._headers)
         if r.json()['ok'] == 1:
@@ -42,12 +43,15 @@ class WeiboSigner:
         r = requests.get(frd_url, cookies=self._cookies, headers=self._headers)
         # print(r.status_code)
         # print(r.text)
+        self._cookies.update(r.cookies.get_dict())
 
     def get_sign_list(self):
         info_list = []
         since_id = ''
         while True:
             # https://m.weibo.cn/p/232478_-_bottom_mine_followed
+            # https://m.weibo.cn/p/index?containerid=100803_-_followsuper
+            # print(self._cookies)
             url = f'https://m.weibo.cn/api/container/getIndex?containerid=100803_-_followsuper&since_id={since_id}'
             r = requests.get(url, cookies=self._cookies, headers=self._headers)
             if r.json()['ok'] != 1:
@@ -188,8 +192,8 @@ def main():
         print(f'用户 {i}')
         try:
             signer = WeiboSigner(gsid=gsid)
+            signer.update_cookies()
             signer.start_sign()
-            signer.keep_cookies_alive()
         except Exception as e:
             print(f'用户 {i} 签到失败: {e}')
             failed_list.append(f'用户 {i}')
