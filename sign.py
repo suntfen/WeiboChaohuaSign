@@ -8,7 +8,7 @@ from multiprocessing.dummy import Pool
 from setting import *
 
 class WeiboSigner:
-    MAX_RETRIES = 4  # 最大重试次数
+    MAX_RETRIES = 3  # 最大重试次数
 
     def __init__(self, gsid):
         self._success_sign = 0
@@ -61,7 +61,7 @@ class WeiboSigner:
                     continue
                 if errno == '100005':
                     print(r.json()['msg'])
-                    self.wait(600)
+                    self.wait(120)
                     continue
             self._cookies.update(r.cookies.get_dict())
             cards = r.json()['data']['cards']
@@ -163,7 +163,7 @@ class WeiboSigner:
             self._parallel_sign(lv_gte_5)
             self._parallel_sign(lv_lt_5)
             if self._fail:
-                self.wait(600)
+                self.wait(120)
                 self._fail = False
                 continue
             break
