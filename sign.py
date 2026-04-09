@@ -4,6 +4,7 @@ import sys
 import time
 import requests
 import email_sender
+import multiprocessing
 from multiprocessing.dummy import Pool
 from setting import *
 
@@ -179,21 +180,35 @@ class WeiboSigner:
     def wait(self, seconds):
         for n in range(seconds, 0, -1):
             time.sleep(1)
-            sys.stdout.write(f'\r等待时间：{n}秒')
+            sys.stdout.write(f'\r等待时间: {n}秒')
             sys.stdout.flush()
+
+def _sign_task(gsid):
+    signer = WeiboSigner(gsid=gsid)
+    signer.update_cookies()
+    signer.start_sign()
 
 def main():
     env = os.environ
     gsid_list = env.get('GSID', GSID).split(';')
 
     failed_list = []
+    timeout_seconds = 1800  # 设置超时时间（秒）
+
     for i, gsid in enumerate(gsid_list):
         print('#' * 60)
         print(f'用户 {i}')
         try:
-            signer = WeiboSigner(gsid=gsid)
-            signer.update_cookies()
-            signer.start_sign()
+            p = multiprocessing.Process(target=_sign_task, args=(gsid,))
+            p.start()
+            p.join(timeout=timeout_seconds)
+            
+            if p.is_alive():
+                p.terminate()
+                p.join()
+                raise TimeoutError(f"签到过程超时 (超过 {timeout_seconds} 秒)")
+            elif p.exitcode != 0:
+                raise Exception(f"进程异常退出，状态码: {p.exitcode}")
         except Exception as e:
             print(f'用户 {i} 签到失败: {e}')
             failed_list.append(f'用户 {i}')
